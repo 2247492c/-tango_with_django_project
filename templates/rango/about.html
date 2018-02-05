@@ -1,25 +1,19 @@
-<!DOCTYPE html>
+{% extends 'rango/base.html' %}
+{% load staticfiles %}
 
-{% load staticfiles %} <!-- New line -->
+{% block title_block %}
+	Rango
+{% endblock %}
 
-<html>
+{% block body_block %}
+	<div>
+        	This tutorial has been put together by James Conway
+      	</div>
 
-   <head>
-      <title>Rango</title>
-   </head>
-
-   <body>
-      <div>
-         This tutorial has been put together by James Conway
-      </div>
-
-      <div>
-	<img src="{% static "images/about.jpg" %}" 
-              alt="About what?..." /> <!-- New line -->
-	 <img src="{{ MEDIA_URL}}cat.jpg"
-              alt="Cat" /> <!-- New line -->
-      </div>
-   </body>
-
-</html>
-         
+      	<div>
+		<img src="{% static "images/about.jpg" %}" 
+              	alt="About what?..." /> <!-- New line -->
+	 	<img src="{{ MEDIA_URL}}cat.jpg"
+              	alt="Cat" /> <!-- New line -->
+      	</div>
+{% endblock %}
