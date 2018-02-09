@@ -1,27 +1,40 @@
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
 from rango.models import Category, Page
 from rango.forms import CategoryForm, PageForm, UserForm, UserProfileForm
+from datetime import datetime
 
 def index(request):
-    # Construct a dictionary to pass to the template engine as its context.
-    # Note the key boldmessage is the same as {{ boldmessage }} in the template!
+    request.session.set_test_cookie()
     category_list = Category.objects.order_by('-likes')[:5]
-    
     page_list = Page.objects.order_by('-views')[:5]
+    context_dict = {'categories': category_list, 'pages': page_list}
     
-    context_dict = {'categories': category_list,
-                    'pages': page_list}
-    # Return a rendered response to send to the client.
-    # We make use of the shortcut function to make our lives easier.
-    # Note that the first parameter is the template we wish to use.
-    return render(request, 'rango/index.html', context_dict)
+    # Call the helper function to handle the cookies
+    visitor_cookie_handler(request)
+    context_dict['visits'] = request.session['visits']
+
+    # Obtain our Response object early so we can add cookie information.
+    response = render(request, 'rango/index.html', context_dict)
+    
+    # Return response back to the user, updating any cookies that need changed.
+    return response
+
 
 def about(request):
-    return render(request, 'rango/about.html')
+    if request.session.test_cookie_worked():
+        print("TEST COOKIE WORKED!")
+        request.session.delete_test_cookie()
+
+    # Call the helper function to handle the cookies
+    visitor_cookie_handler(request)
+    context_dict = {'visits': request.session['visits']}
+    
+    return render(request, 'rango/about.html', context_dict)
 
 def show_category(request, category_name_slug):
     # Create a context dictionary in which we can pass
@@ -195,9 +208,15 @@ def user_login(request):
                 # An inactive account was used - no logging in!
                 return HttpResponse("Your Rango account is disabled.")
         else:
+            user = User.objects.filter(username=username)
+            if user:
+                context_dict = {'error_message' : "Invalid password!"}
+            else:
+                context_dict = {'error_message' : "Invalid username!"}
             # Bad login details were provided. So we can't log the user in.
             print("Invalid login details: {0}, {1}".format(username, password))
-            return HttpResponse("Invalid login details supplied.")
+            return render(request, 'rango/login.html', context_dict)
+            #return HttpResponse("Invalid login details supplied.")
 
     # The request is not a HTTP POST, so display the login form.
     # This scenario would most likely be a HTTP GET.
@@ -218,3 +237,30 @@ def user_logout(request):
     logout(request)
     # Take the user back to the homepage.
     return HttpResponseRedirect(reverse('index'))
+
+# A helper method
+def get_server_side_cookie(request, cookie, default_val=None):
+    val = request.session.get(cookie)
+    if not val:
+        val = default_val
+    return val
+
+# Updated the function definition  
+def visitor_cookie_handler(request):
+    visits = int(get_server_side_cookie(request, 'visits', '1'))
+    last_visit_cookie = get_server_side_cookie(request, 'last_visit', str(datetime.now()))
+    last_visit_time = datetime.strptime(last_visit_cookie[:-7], '%Y-%m-%d %H:%M:%S')
+
+    # If it's been more than a day since the last visit...
+    if(datetime.now() - last_visit_time).days > 0:
+        visits = visits + 1
+        # Update the last visit cookie now that we have updated the count
+        request.session['last_visit'] = str(datetime.now())
+    else:
+        visits = 1
+        # set the last visit cookie
+        request.session['last_visit'] = last_visit_cookie
+
+    # Update/set the visits cookie
+    request.session['visits'] = visits
+                        
